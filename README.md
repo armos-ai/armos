@@ -25,22 +25,7 @@ Most teams know this is a risk. Few have time to build a proper masking layer be
 
 ## How it works
 
-```
-Your app                Armos                    LLM provider
-─────────               ─────────────────────    ─────────────────
-messages=[{             ┌─ detect PII ──────────────────────────┐
- "role": "user",        │  John Smith → [PII:NAME:a1b2c3d4]     │
- "content":             │  2345 6789 0123 → [PII:AADHAAR:b2c3]  │   masked prompt sent
-  "John Smith,    ───▶  │  john@h.com → [PII:EMAIL:e5f6g7h8]    │ ──────────────────▶
-   Aadhaar               └───────────────────────────────────────┘
-   2345 6789 0123,
-   john@hospital.         ┌─ restore real values ─────────────────┐
-   com"                   │  [PII:NAME:a1b2c3d4] → John Smith      │   raw response received
-}]                  ◀─── │  [PII:EMAIL:e5f6g7h8] → john@h.com    │ ◀──────────────────
-                          └────────────────────────────────────────┘
-
-response.choices[0].message.content  →  real values, fully restored
-```
+![How Armos works](assets/how-it-works.png)
 
 **Detection runs entirely on your machine.** Presidio + spaCy analyse the text locally. No data is sent to any Armos server — there is no Armos server. The vault (token ↔ real value map) lives in your process memory, or optionally in your own Redis instance.
 
