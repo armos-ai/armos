@@ -6,6 +6,8 @@ Armos wraps the OpenAI and Anthropic SDKs to automatically detect and mask perso
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![PyPI version](https://img.shields.io/pypi/v/armos.svg)](https://pypi.org/project/armos/)
+[![GitHub Stars](https://img.shields.io/github/stars/armos-ai/armos-python?style=social)](https://github.com/armos-ai/armos-python)
 
 ---
 
@@ -28,6 +30,22 @@ Most teams know this is a risk. Few have time to build a proper masking layer be
 ![How Armos works](assets/how-it-works.png)
 
 **Detection runs entirely on your machine.** Presidio + spaCy analyse the text locally. No data is sent to any Armos server — there is no Armos server. The vault (token ↔ real value map) lives in your process memory, or optionally in your own Redis instance.
+
+---
+
+## Why Armos over alternatives?
+
+**vs. building your own:** A custom masking layer takes weeks to build correctly 
+and months to handle edge cases. Armos is a pip install.
+
+**vs. LLM Guard:** LLM Guard focuses on prompt injection and toxicity — 
+not PII masking. Different problem.
+
+**vs. Presidio directly:** Presidio detects PII but doesn't handle 
+tokenization, vault management, or SDK integration. Armos wraps all of that.
+
+**Indian PII first-class:** Aadhaar and PAN detection built in. 
+No competitor handles Indian identifiers reliably.
 
 ---
 
@@ -183,8 +201,8 @@ In-memory vault is zero configuration and the default. Redis vault persists toke
 Armos is open source and MIT licensed. Issues and pull requests welcome.
 
 ```bash
-git clone https://github.com/armos-ai/armos
-cd armos
+git clone https://github.com/armos-ai/armos-python
+cd armos-python
 pip install -e ".[dev,all]"
 python -m spacy download en_core_web_lg
 pytest tests/ -v

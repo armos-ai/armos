@@ -19,7 +19,7 @@ from .wrappers.openai import ArmosOpenAI
 from .wrappers.anthropic import ArmosAnthropic
 from .models import MaskResult, DetectedEntity
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __all__ = [
     "Armos",
     "ArmosOpenAI",
