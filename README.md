@@ -110,6 +110,31 @@ message = client.messages.create(
 print(message.content[0].text)  # real values restored
 ```
 
+### OpenAI Responses API
+
+```python
+response = client.responses.create(
+    model="gpt-4o",
+    input="Patient John Smith, Aadhaar 2345 6789 0123 — summarise in one line."
+)
+print(response.output[0].content[0].text)  # real values restored
+```
+
+### Embeddings
+
+```python
+# PII is masked before the text is sent for embedding
+result = client.embeddings.create(
+    model="text-embedding-3-small",
+    input="John Smith's email is john@hospital.com"
+)
+# Works with list input too
+result = client.embeddings.create(
+    model="text-embedding-3-small",
+    input=["john@hospital.com", "no pii here"]
+)
+```
+
 ### With Redis (persistent vault across requests)
 
 ```python
@@ -217,13 +242,11 @@ Redis overhead is the localhost round-trip cost (~1–2 ms per vault operation).
 
 ## Known limitations
 
-1. **Streaming not supported** — `stream=True` passes through without masking. (planned)
-2. **Async clients not supported** — `AsyncOpenAI`, `AsyncAnthropic` pass through without masking. (planned)
-3. **OpenAI Responses API not intercepted** — `client.responses.create()` passes through. (planned)
-4. **Embeddings not masked** — `client.embeddings.create()` sends text as-is. (planned)
-5. **Indian name accuracy** — `en_core_web_lg` is trained on English text; Indian names have lower recall than Western names. Fine-tuning planned.
-6. **Casing: first-seen wins** — De-masking always restores the first-seen casing of an entity. Use consistent casing in your prompts for exact restoration.
-7. **Token length** — `[PII:NAME:a1b2c3d4]` is 18 chars vs `John` (4 chars). Near context-window limits this may push content over. Rare in practice.
+1. **Indian name accuracy** — `en_core_web_lg` is trained on English text; Indian names have lower recall than Western names. Fine-tuning planned.
+2. **Token length** — `[PII:NAME:a1b2c3d4]` is 18 chars vs `John` (4 chars). Near context-window limits this may push content over. Rare in practice.
+3. **Casing: first-seen wins** — De-masking always restores the first-seen casing of an entity. Use consistent casing in your prompts for exact restoration.
+4. **Streaming not supported** — `stream=True` passes through without masking. (planned)
+5. **Async clients not supported** — `AsyncOpenAI`, `AsyncAnthropic` pass through without masking. (planned)
 
 ---
 

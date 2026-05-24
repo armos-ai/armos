@@ -1,11 +1,10 @@
 # SPDX-License-Identifier: MIT
-from typing import Any, List, Literal
+from typing import Any, Literal
 from ..guard import Armos, _DEFAULT_VAULT_TTL
+from .base import _MaskingMixin, SYSTEM_HINT
 
-_ARMOS_SYSTEM_HINT = "Reproduce any [PII:TYPE:HASH] tokens in your response exactly as written."
 
-
-class ArmosCompletions:
+class ArmosCompletions(_MaskingMixin):
     """Wraps openai.resources.chat.completions.Completions. Intercepts create() only."""
 
     def __init__(self, completions: Any, guard: Armos):
@@ -18,51 +17,19 @@ class ArmosCompletions:
             if has_pii:
                 msgs = kwargs["messages"]
                 if msgs and msgs[0].get("role") == "system":
-                    msgs[0] = {**msgs[0], "content": msgs[0]["content"] + "\n\n" + _ARMOS_SYSTEM_HINT}
+                    msgs[0] = {**msgs[0], "content": msgs[0]["content"] + "\n\n" + SYSTEM_HINT}
                 else:
-                    kwargs["messages"] = [{"role": "system", "content": _ARMOS_SYSTEM_HINT}] + msgs
+                    kwargs["messages"] = [{"role": "system", "content": SYSTEM_HINT}] + msgs
 
         response = self._completions.create(**kwargs)
         return self._demask_response(response)
-
-    def _mask_messages(self, messages: List[dict]) -> tuple:
-        masked = []
-        any_pii = False
-        for msg in messages:
-            content = msg.get("content")
-
-            if isinstance(content, str):
-                if not self._guard._tokenizer.contains_tokens(content):
-                    result = self._guard.mask(content)
-                    if result.has_pii:
-                        any_pii = True
-                        msg = {**msg, "content": result.text}
-
-            elif isinstance(content, list):
-                masked_parts = []
-                for part in content:
-                    if isinstance(part, dict) and part.get("type") == "text":
-                        text = part.get("text", "")
-                        if not self._guard._tokenizer.contains_tokens(text):
-                            result = self._guard.mask(text)
-                            if result.has_pii:
-                                any_pii = True
-                                part = {**part, "text": result.text}
-                    masked_parts.append(part)
-                msg = {**msg, "content": masked_parts}
-
-            masked.append(msg)
-        return masked, any_pii
 
     def _demask_response(self, response: Any) -> Any:
         if not hasattr(response, "choices"):
             return response
         for choice in response.choices:
-            if hasattr(choice, "message") and choice.message:
-                if choice.message.content:
-                    choice.message.content = self._guard.demask(
-                        choice.message.content
-                    )
+            if hasattr(choice, "message") and choice.message and choice.message.content:
+                choice.message.content = self._guard.demask(choice.message.content)
         return response
 
     def __getattr__(self, name: str) -> Any:
@@ -78,6 +45,65 @@ class ArmosChat:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._chat, name)
+
+
+class ArmosResponses(_MaskingMixin):
+    """Wraps openai.resources.responses.Responses. Intercepts create() only."""
+
+    def __init__(self, responses: Any, guard: Armos):
+        self._responses = responses
+        self._guard = guard
+
+    def create(self, **kwargs) -> Any:
+        has_pii = False
+
+        if "input" in kwargs:
+            inp = kwargs["input"]
+            if isinstance(inp, str):
+                kwargs["input"], has_pii = self._mask_string(inp)
+            elif isinstance(inp, list):
+                kwargs["input"], has_pii = self._mask_messages(inp)
+
+        if has_pii:
+            existing = kwargs.get("instructions") or ""
+            kwargs["instructions"] = (existing + "\n\n" + SYSTEM_HINT).strip() if existing else SYSTEM_HINT
+
+        response = self._responses.create(**kwargs)
+        return self._demask_response(response)
+
+    def _demask_response(self, response: Any) -> Any:
+        if not hasattr(response, "output"):
+            return response
+        for item in response.output:
+            if hasattr(item, "content") and isinstance(item.content, list):
+                for block in item.content:
+                    if hasattr(block, "text") and block.text:
+                        block.text = self._guard.demask(block.text)
+        return response
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._responses, name)
+
+
+class ArmosEmbeddings(_MaskingMixin):
+    """Wraps openai.resources.embeddings.Embeddings. Masks input text before sending."""
+
+    def __init__(self, embeddings: Any, guard: Armos):
+        self._embeddings = embeddings
+        self._guard = guard
+
+    def create(self, **kwargs) -> Any:
+        if "input" in kwargs:
+            inp = kwargs["input"]
+            if isinstance(inp, str):
+                kwargs["input"], _ = self._mask_string(inp)
+            elif isinstance(inp, list):
+                kwargs["input"], _ = self._mask_input_list(inp)
+
+        return self._embeddings.create(**kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._embeddings, name)
 
 
 class ArmosOpenAI:
@@ -104,6 +130,8 @@ class ArmosOpenAI:
         self._client = client
         self._guard = Armos(store=store, redis_url=redis_url, vault_ttl=vault_ttl)
         self.chat = ArmosChat(client.chat, self._guard)
+        self.responses = ArmosResponses(client.responses, self._guard)
+        self.embeddings = ArmosEmbeddings(client.embeddings, self._guard)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._client, name)
