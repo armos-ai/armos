@@ -187,13 +187,13 @@ Detection and masking run entirely in-process with no network calls. Benchmarked
 
 ![Armos latency benchmark](assets/benchmark.png)
 
-| Text size | PII — p50 | PII — p95 | Clean — p50 | Clean — p95 |
-|-----------|-----------|-----------|-------------|-------------|
-| Short (~20 tokens) | 2.5 ms | 2.8 ms | 2.5 ms | 2.8 ms |
-| Medium (~60 tokens) | 6.0 ms | 6.6 ms | 4.9 ms | 5.4 ms |
-| Long (~150 tokens) | 13.3 ms | 14.1 ms | 9.5 ms | 16.8 ms |
+| Text size | Memory — p50 | Memory — p95 | Redis — p50 | Redis — p95 |
+|-----------|-------------|-------------|------------|------------|
+| Short (~20 tokens) | 2.5 ms | 2.7 ms | 3.6 ms | 3.9 ms |
+| Medium (~60 tokens) | 6.0 ms | 6.4 ms | 8.6 ms | 9.0 ms |
+| Long (~150 tokens) | 13.3 ms | 13.9 ms | 19.4 ms | 20.5 ms |
 
-Overhead is negligible relative to LLM response times (typically 500 ms–5 s).
+Redis overhead is the localhost round-trip cost (~1–2 ms per vault operation). Both are negligible relative to LLM response times (typically 500 ms–5 s).
 
 ---
 
