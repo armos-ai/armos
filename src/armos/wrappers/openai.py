@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
-from typing import Any, List
-from ..guard import Armos
-from ..masking.vault.redis import RedisVault
+from typing import Any, List, Literal
+from ..guard import Armos, _DEFAULT_VAULT_TTL
+
+_ARMOS_SYSTEM_HINT = "Reproduce any [PII:TYPE:HASH] tokens in your response exactly as written."
 
 
 class ArmosCompletions:
@@ -13,24 +14,29 @@ class ArmosCompletions:
 
     def create(self, **kwargs) -> Any:
         if "messages" in kwargs:
-            kwargs["messages"] = self._mask_messages(kwargs["messages"])
+            kwargs["messages"], has_pii = self._mask_messages(kwargs["messages"])
+            if has_pii:
+                msgs = kwargs["messages"]
+                if msgs and msgs[0].get("role") == "system":
+                    msgs[0] = {**msgs[0], "content": msgs[0]["content"] + "\n\n" + _ARMOS_SYSTEM_HINT}
+                else:
+                    kwargs["messages"] = [{"role": "system", "content": _ARMOS_SYSTEM_HINT}] + msgs
 
         response = self._completions.create(**kwargs)
         return self._demask_response(response)
 
-    def _mask_messages(self, messages: List[dict]) -> List[dict]:
-        """
-        Mask PII in message content.
-        Skips messages that already contain tokens — avoids double-masking.
-        """
+    def _mask_messages(self, messages: List[dict]) -> tuple:
         masked = []
+        any_pii = False
         for msg in messages:
             content = msg.get("content")
 
             if isinstance(content, str):
                 if not self._guard._tokenizer.contains_tokens(content):
                     result = self._guard.mask(content)
-                    msg = {**msg, "content": result.text}
+                    if result.has_pii:
+                        any_pii = True
+                        msg = {**msg, "content": result.text}
 
             elif isinstance(content, list):
                 masked_parts = []
@@ -39,12 +45,14 @@ class ArmosCompletions:
                         text = part.get("text", "")
                         if not self._guard._tokenizer.contains_tokens(text):
                             result = self._guard.mask(text)
-                            part = {**part, "text": result.text}
+                            if result.has_pii:
+                                any_pii = True
+                                part = {**part, "text": result.text}
                     masked_parts.append(part)
                 msg = {**msg, "content": masked_parts}
 
             masked.append(msg)
-        return masked
+        return masked, any_pii
 
     def _demask_response(self, response: Any) -> Any:
         if not hasattr(response, "choices"):
@@ -89,11 +97,12 @@ class ArmosOpenAI:
     def __init__(
         self,
         client: Any,
-        store: str | None = None,
-        vault_ttl: int = RedisVault.DEFAULT_TTL,
+        store: Literal["redis"] | None = None,
+        redis_url: str | None = None,
+        vault_ttl: int = _DEFAULT_VAULT_TTL,
     ):
         self._client = client
-        self._guard = Armos(store=store, vault_ttl=vault_ttl)
+        self._guard = Armos(store=store, redis_url=redis_url, vault_ttl=vault_ttl)
         self.chat = ArmosChat(client.chat, self._guard)
 
     def __getattr__(self, name: str) -> Any:

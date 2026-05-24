@@ -114,11 +114,11 @@ print(message.content[0].text)  # real values restored
 
 ```python
 # Token mappings survive across processes and requests
-client = ArmosOpenAI(OpenAI(), store="redis://localhost:6379")
-client = ArmosAnthropic(Anthropic(), store="redis://localhost:6379")
+client = ArmosOpenAI(OpenAI(), store="redis", redis_url="redis://localhost:6379")
+client = ArmosAnthropic(Anthropic(), store="redis", redis_url="redis://localhost:6379")
 
 # Custom TTL (default: 24 hours)
-client = ArmosOpenAI(OpenAI(), store="redis://localhost:6379", vault_ttl=3600)
+client = ArmosOpenAI(OpenAI(), store="redis", redis_url="redis://localhost:6379", vault_ttl=3600)
 ```
 
 ### Standalone (any LLM or framework)
@@ -175,7 +175,7 @@ All casing variants of the same name map to one token. The LLM sees one consiste
 | Option | Default | Use when |
 |--------|---------|----------|
 | In-memory | `Armos()` | Single request or single process |
-| Redis | `Armos(store="redis://…")` | Multi-turn conversations, multiple workers, or across requests |
+| Redis | `Armos(store="redis", redis_url="redis://…")` | Multi-turn conversations, multiple workers, or across requests |
 
 In-memory vault is zero configuration and the default. Redis vault persists token mappings so a token created in request 1 can be de-masked in request 5.
 

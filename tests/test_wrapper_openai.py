@@ -73,5 +73,47 @@ def test_no_double_masking():
 
     call_kwargs = client.chat.completions.create.call_args[1]
     sent_content = call_kwargs["messages"][0]["content"]
-    # Should not have double-masked the token
     assert sent_content.count("[PII:NAME:a1b2c3d4]") == 1
+
+
+def test_system_hint_injected_only_when_pii_detected():
+    """System hint must be added when PII is found, absent when message is clean."""
+    client = make_mock_client("ok")
+    armos_client = ArmosOpenAI(client)
+
+    # PII message — hint should appear
+    armos_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "My email is john@test.com"}]
+    )
+    call_kwargs = client.chat.completions.create.call_args[1]
+    system_msg = next((m for m in call_kwargs["messages"] if m.get("role") == "system"), None)
+    assert system_msg is not None
+    assert "PII" in system_msg["content"]
+
+    # Clean message — no system hint injected
+    armos_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "What is the weather today?"}]
+    )
+    call_kwargs = client.chat.completions.create.call_args[1]
+    system_msg = next((m for m in call_kwargs["messages"] if m.get("role") == "system"), None)
+    assert system_msg is None
+
+
+def test_system_hint_appended_to_existing_system_message():
+    """Existing system message is preserved; hint is appended, not replaced."""
+    client = make_mock_client("ok")
+    armos_client = ArmosOpenAI(client)
+
+    armos_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "My email is john@test.com"},
+        ]
+    )
+    call_kwargs = client.chat.completions.create.call_args[1]
+    system_content = call_kwargs["messages"][0]["content"]
+    assert "You are a helpful assistant." in system_content
+    assert "PII" in system_content

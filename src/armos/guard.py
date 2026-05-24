@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: MIT
+from typing import Literal
 from .models import MaskResult
 from .detection.engine import DetectionEngine
 from .masking.tokenizer import Tokenizer
 from .masking.vault import build_vault
 from .masking.vault.base import BaseVault
-from .masking.vault.redis import RedisVault
+
+_DEFAULT_VAULT_TTL = 86400
 
 
 class Armos:
@@ -16,8 +18,13 @@ class Armos:
     Can also be used directly for custom LLM integrations.
     """
 
-    def __init__(self, store: str | None = None, vault_ttl: int = RedisVault.DEFAULT_TTL):
-        self._vault: BaseVault = build_vault(store=store, ttl=vault_ttl)
+    def __init__(
+        self,
+        store: Literal["redis"] | None = None,
+        redis_url: str | None = None,
+        vault_ttl: int = _DEFAULT_VAULT_TTL,
+    ):
+        self._vault: BaseVault = build_vault(store=store, redis_url=redis_url, ttl=vault_ttl)
         self._engine = DetectionEngine()
         self._tokenizer = Tokenizer(self._vault)
 
