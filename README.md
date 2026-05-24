@@ -215,13 +215,13 @@ Redis overhead is the localhost round-trip cost (~1–2 ms per vault operation).
 
 ---
 
-## v1 limitations
+## Known limitations
 
-1. **Streaming not supported** — `stream=True` passes through without masking. (v1.1)
-2. **Async clients not supported** — `AsyncOpenAI`, `AsyncAnthropic` pass through without masking. (v1.1)
-3. **OpenAI Responses API not intercepted** — `client.responses.create()` passes through. (v1.1)
-4. **Embeddings not masked** — `client.embeddings.create()` sends text as-is. (v1.1)
-5. **Indian name accuracy** — `en_core_web_lg` is trained on English text; Indian names have lower recall than Western names. Fine-tuning planned for v2.
+1. **Streaming not supported** — `stream=True` passes through without masking. (planned)
+2. **Async clients not supported** — `AsyncOpenAI`, `AsyncAnthropic` pass through without masking. (planned)
+3. **OpenAI Responses API not intercepted** — `client.responses.create()` passes through. (planned)
+4. **Embeddings not masked** — `client.embeddings.create()` sends text as-is. (planned)
+5. **Indian name accuracy** — `en_core_web_lg` is trained on English text; Indian names have lower recall than Western names. Fine-tuning planned.
 6. **Casing: first-seen wins** — De-masking always restores the first-seen casing of an entity. Use consistent casing in your prompts for exact restoration.
 7. **Token length** — `[PII:NAME:a1b2c3d4]` is 18 chars vs `John` (4 chars). Near context-window limits this may push content over. Rare in practice.
 
