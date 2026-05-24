@@ -1,6 +1,6 @@
 [project]
 name = "armos"
-version = "0.1.6"
+version = "0.1.7"
 description = "Automatic PII masking for OpenAI and Anthropic SDKs"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -35,9 +35,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/armos-ai/armos"
-Source = "https://github.com/armos-ai/armos"
-"Bug Tracker" = "https://github.com/armos-ai/armos/issues"
+Homepage = "https://github.com/armos-ai/armos-python"
+Source = "https://github.com/armos-ai/armos-python"
+"Bug Tracker" = "https://github.com/armos-ai/armos-python/issues"
 
 [project.optional-dependencies]
 redis = ["redis>=5.0.0"]
