@@ -24,7 +24,7 @@ Most teams know this is a risk. Few have time to build a proper masking layer be
 
 ## How it works
 
-![How Armos works](assets/how-it-works.png)
+![How Armos works](https://raw.githubusercontent.com/armos-ai/armos-python/master/assets/how-it-works.png)
 
 **Detection runs entirely on your machine.** Presidio + spaCy analyse the text locally. No data is sent to any Armos server — there is no Armos server. The vault (token ↔ real value map) lives in your process memory, or optionally in your own Redis instance.
 
@@ -203,7 +203,7 @@ Masking replaces PII values with tokens like `[PII:NAME:a1b2c3d4]`. These are lo
 
 Detection and masking run entirely in-process with no network calls. Benchmarked on Apple M-series (50 runs, median / p95):
 
-![Armos latency benchmark](assets/benchmark.png)
+![Armos latency benchmark](https://raw.githubusercontent.com/armos-ai/armos-python/master/assets/benchmark.png)
 
 | Text size | Memory — p50 | Memory — p95 | Redis — p50 | Redis — p95 |
 |-----------|-------------|-------------|------------|------------|
