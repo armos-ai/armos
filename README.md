@@ -181,6 +181,22 @@ In-memory vault is zero configuration and the default. Redis vault persists toke
 
 ---
 
+## Performance
+
+Detection and masking run entirely in-process with no network calls. Benchmarked on Apple M-series (50 runs, median / p95):
+
+![Armos latency benchmark](assets/benchmark.png)
+
+| Text size | PII — p50 | PII — p95 | Clean — p50 | Clean — p95 |
+|-----------|-----------|-----------|-------------|-------------|
+| Short (~20 tokens) | 2.5 ms | 2.8 ms | 2.5 ms | 2.8 ms |
+| Medium (~60 tokens) | 6.0 ms | 6.6 ms | 4.9 ms | 5.4 ms |
+| Long (~150 tokens) | 13.3 ms | 14.1 ms | 9.5 ms | 16.8 ms |
+
+Overhead is negligible relative to LLM response times (typically 500 ms–5 s).
+
+---
+
 ## v1 limitations
 
 1. **Streaming not supported** — `stream=True` passes through without masking. (v1.1)
