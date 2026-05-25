@@ -23,7 +23,14 @@ class RedisVault(BaseVault):
 
     def __init__(self, url: str, ttl: int = DEFAULT_TTL):
         self._ttl = ttl
-        self._client = redis_lib.from_url(url, decode_responses=True)
+        kwargs: dict = {"decode_responses": True}
+        if url.startswith("rediss://"):
+            try:
+                import certifi
+                kwargs["ssl_ca_certs"] = certifi.where()
+            except ImportError:
+                pass
+        self._client = redis_lib.from_url(url, **kwargs)
 
         try:
             self._client.ping()
