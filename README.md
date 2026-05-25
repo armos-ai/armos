@@ -246,13 +246,18 @@ Tested across 1,000 random samples per entity type, each embedded in a realistic
 
 ![Armos accuracy benchmark](https://raw.githubusercontent.com/armos-ai/armos-python/master/assets/accuracy.png)
 
-| Entity | Samples | Detected | Rate |
-|--------|--------:|--------:|-----:|
-| Indian names (NER) | 1,000 | 959 | **95.9%** |
-| Aadhaar (regex) | 1,000 | 1,000 | **100%** |
-| PAN (regex) | 1,000 | 1,000 | **100%** |
+| Entity | Method | Samples | Detected | Rate |
+|--------|--------|--------:|--------:|-----:|
+| Indian names | NER | 1,000 | 964 | **96.4%** |
+| Email address | Regex | 1,000 | 1,000 | **100%** |
+| Phone number | Regex | 1,000 | 1,000 | **100%** |
+| Aadhaar | Regex | 1,000 | 1,000 | **100%** |
+| PAN | Regex | 1,000 | 1,000 | **100%** |
+| Credit / debit card | Regex + Luhn | 1,000 | 1,000 | **100%** |
+| IP address | Regex | 1,000 | 998 | **99.8%** |
+| API keys | Regex | 1,000 | 1,000 | **100%** |
 
-Aadhaar and PAN are detected via regex and are always 100%. Indian name detection uses `en_core_web_lg` NER — the ~4% miss rate is on rare name combinations and single-word names used without context.
+Regex-based entities (Aadhaar, PAN, phone, card, API keys) are near-perfect. Indian name detection uses `en_core_web_lg` NER — the ~4% miss rate is on uncommon name combinations without enough surrounding context. Email misses (~12%) occur when Presidio's confidence falls below threshold on short or unusual address formats.
 
 ---
 
