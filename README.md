@@ -4,7 +4,7 @@
 
 Armos wraps the OpenAI and Anthropic SDKs to automatically detect and mask personally identifiable information (PII) before it leaves your server — and restore the real values in the response. Your application code changes by exactly one word.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/) [![PyPI version](https://img.shields.io/pypi/v/armos.svg)](https://pypi.org/project/armos/) [![GitHub Stars](https://img.shields.io/github/stars/armos-ai/armos-python?style=social)](https://github.com/armos-ai/armos-python)
+[![CI](https://github.com/armos-ai/armos-python/actions/workflows/ci.yml/badge.svg)](https://github.com/armos-ai/armos-python/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/) [![PyPI version](https://img.shields.io/pypi/v/armos.svg)](https://pypi.org/project/armos/) [![GitHub Stars](https://img.shields.io/github/stars/armos-ai/armos-python?style=social)](https://github.com/armos-ai/armos-python)
 
 ---
 
