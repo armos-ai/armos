@@ -1,8 +1,10 @@
 # Armos
 
-**PII never reaches your LLM. One line of code.**
+**The privacy boundary between regulated workflows and LLM APIs.**
 
-Armos wraps the OpenAI and Anthropic SDKs to automatically detect and mask personally identifiable information (PII) before it leaves your server — and restore the real values in the response. Your application code changes by exactly one word.
+Sensitive-data teams want LLM automation — but can't casually send names, IDs, tax records, or health data to external models. Armos is the local detection and reversible token layer that makes it safe.
+
+Built for developers. Drop-in for OpenAI and Anthropic. **One line to integrate.**
 
 [![CI](https://github.com/armos-ai/armos-python/actions/workflows/ci.yml/badge.svg)](https://github.com/armos-ai/armos-python/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/) [![PyPI version](https://img.shields.io/pypi/v/armos.svg)](https://pypi.org/project/armos/) [![GitHub Stars](https://img.shields.io/github/stars/armos-ai/armos-python?style=social)](https://github.com/armos-ai/armos-python)
 
@@ -10,15 +12,11 @@ Armos wraps the OpenAI and Anthropic SDKs to automatically detect and mask perso
 
 ## The problem
 
-Every time your application calls an LLM, it sends raw text to a third-party server. If a user's message contains their name, Aadhaar number, email, PAN card, or credit card — that data leaves your infrastructure.
+Healthtech, fintech, legal, and HR teams are sitting on a specific blocker: they want LLM automation, but they can't casually send names, IDs, tax data, health records, or legal documents into external models.
 
-This matters for:
-- **Healthcare apps** — patient names, dates of birth, medical IDs
-- **Fintech apps** — PAN, Aadhaar, bank details
-- **Customer support tools** — names, emails, phone numbers, addresses
-- **Any app** where users type free text that gets sent to OpenAI or Anthropic
+Every LLM API call sends raw text to a third-party server. If that text contains PII — names, Aadhaar, PAN, SSN, emails, credit cards — that data leaves your infrastructure. Most teams know this is a risk. Few have time to build a proper privacy layer before shipping.
 
-Most teams know this is a risk. Few have time to build a proper masking layer before shipping. Armos is that layer, pre-built.
+Armos is that layer, pre-built — local detection, reversible tokens, no data sent anywhere during masking.
 
 ---
 
