@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 from typing import List
+import spacy
 from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 
@@ -7,6 +8,15 @@ from ..models import DetectedEntity
 from .recognisers.aadhaar import AadhaarRecogniser
 from .recognisers.pan import PANRecogniser
 from .recognisers.standard import APIKeyRecogniser
+
+_MODEL = "en_core_web_lg"
+
+
+def _ensure_model() -> None:
+    if not spacy.util.is_package(_MODEL):
+        print(f"[armos] Downloading spaCy model {_MODEL!r} (first-time setup, ~560 MB)...")
+        spacy.cli.download(_MODEL)
+        print("[armos] Model ready.")
 
 
 ENTITY_TYPES = [
@@ -43,12 +53,13 @@ class DetectionEngine:
     """
 
     def __init__(self):
+        _ensure_model()
         self._analyzer = self._build_analyzer()
 
     def _build_analyzer(self) -> AnalyzerEngine:
         configuration = {
             "nlp_engine_name": "spacy",
-            "models": [{"lang_code": "en", "model_name": "en_core_web_lg"}],
+            "models": [{"lang_code": "en", "model_name": _MODEL}],
         }
         provider = NlpEngineProvider(nlp_configuration=configuration)
         nlp_engine = provider.create_engine()

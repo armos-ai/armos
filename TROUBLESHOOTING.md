@@ -27,7 +27,12 @@ OSError: [E050] Can't find model 'en_core_web_lg'.
 ```
 
 **Fix**
-Download the spaCy model on first use:
+From v1.2.0 onwards, Armos downloads the model automatically on first use. If you're on an older version, upgrade:
+```bash
+pip install --upgrade armos
+```
+
+Or download manually:
 ```bash
 python -m spacy download en_core_web_lg
 ```

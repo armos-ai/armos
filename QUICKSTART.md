@@ -6,8 +6,9 @@ Get up and running in 5 minutes.
 
 ```bash
 pip install armos  # requires Python 3.10+
-python -m spacy download en_core_web_lg
 ```
+
+The spaCy language model (~560 MB) is downloaded automatically on first use.
 
 ## 2. Pick your SDK
 

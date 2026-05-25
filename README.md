@@ -59,10 +59,7 @@ For Redis-backed persistence across requests:
 pip install armos[redis]
 ```
 
-> **Note:** On first use, download the spaCy language model:
-> ```bash
-> python -m spacy download en_core_web_lg
-> ```
+> **Note:** On first use, Armos automatically downloads the spaCy language model (~560 MB). This happens once and is cached for all future uses.
 
 ### OpenAI
 
