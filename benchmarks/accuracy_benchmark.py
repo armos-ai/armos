@@ -138,6 +138,42 @@ def random_apikey():
         return "ghp_" + "".join(random.choices(alnum, k=36))
 
 
+def random_ssn():
+    # Avoid reserved ranges: area 000, 666, 900-999; group 00; serial 0000
+    area = random.randint(1, 665) if random.random() < 0.5 else random.randint(667, 899)
+    group = random.randint(1, 99)
+    serial = random.randint(1, 9999)
+    return f"{area:03d}-{group:02d}-{serial:04d}"
+
+
+def _iban_check_digits(country: str, bban: str) -> str:
+    rearranged = bban + country + "00"
+    numeric = "".join(
+        str(ord(c) - ord("A") + 10) if c.isalpha() else c
+        for c in rearranged
+    )
+    check = 98 - (int(numeric) % 97)
+    return f"{check:02d}"
+
+def random_iban():
+    kind = random.choice(["GB", "DE", "FR", "NL"])
+    if kind == "GB":
+        bank = "".join(random.choices(string.ascii_uppercase, k=4))
+        sortcode = "".join([str(random.randint(0, 9)) for _ in range(6)])
+        account = "".join([str(random.randint(0, 9)) for _ in range(8)])
+        bban = bank + sortcode + account
+    elif kind == "DE":
+        bban = "".join([str(random.randint(0, 9)) for _ in range(18)])
+    elif kind == "FR":
+        bban = "".join([str(random.randint(0, 9)) for _ in range(23)])
+    else:  # NL
+        bank = "".join(random.choices(string.ascii_uppercase, k=4))
+        account = "".join([str(random.randint(0, 9)) for _ in range(10)])
+        bban = bank + account
+    check = _iban_check_digits(kind, bban)
+    return f"{kind}{check}{bban}"
+
+
 # ---------------------------------------------------------------------------
 # Templates
 # ---------------------------------------------------------------------------
@@ -206,6 +242,22 @@ APIKEY_TEMPLATES = [
     "Service called with key {}.",
 ]
 
+SSN_TEMPLATES = [
+    "SSN: {}.",
+    "Employee SSN on file: {}.",
+    "Please verify SSN {}.",
+    "Social security number: {}.",
+    "Tax record linked to SSN {}.",
+]
+
+IBAN_TEMPLATES = [
+    "Please transfer to IBAN {}.",
+    "Bank account IBAN: {}.",
+    "Send payment to {}.",
+    "Recipient IBAN is {}.",
+    "Wire funds to IBAN {}.",
+]
+
 
 # ---------------------------------------------------------------------------
 # Runner
@@ -242,6 +294,8 @@ results = [
     run_test("CARD",    random_card,    CARD_TEMPLATES,    "[PII:CARD:"),
     run_test("IP",      random_ip,      IP_TEMPLATES,      "[PII:IP:"),
     run_test("APIKEY",  random_apikey,  APIKEY_TEMPLATES,  "[PII:APIKEY:"),
+    run_test("SSN",     random_ssn,     SSN_TEMPLATES,     "[PII:SSN:"),
+    run_test("IBAN",    random_iban,    IBAN_TEMPLATES,    "[PII:IBAN:"),
 ]
 
 print()

@@ -47,6 +47,14 @@ def test_detects_aws_key(engine):
     entities = engine.detect("AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE")
     assert any(e.entity_type == "APIKEY" for e in entities)
 
+def test_detects_ssn(engine):
+    entities = engine.detect("Employee SSN on file: 371-53-1234.")
+    assert any(e.entity_type == "SSN" for e in entities)
+
+def test_detects_iban(engine):
+    entities = engine.detect("Please transfer to IBAN GB29NWBK60161331926819.")
+    assert any(e.entity_type == "IBAN" for e in entities)
+
 def test_no_false_positives(engine):
     entities = engine.detect("The weather in Bangalore is pleasant today.")
     assert len(entities) == 0

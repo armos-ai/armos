@@ -175,6 +175,8 @@ print(restored)
 | Phone number | `[PII:PHONE:…]` | +91 98765 43210 |
 | Aadhaar number | `[PII:AADHAAR:…]` | 2345 6789 0123 |
 | PAN card | `[PII:PAN:…]` | ABCDE1234F |
+| SSN | `[PII:SSN:…]` | 371-53-1234 |
+| IBAN | `[PII:IBAN:…]` | GB29NWBK60161331926819 |
 | Credit / debit card | `[PII:CARD:…]` | 4111 1111 1111 1111 |
 | IP address | `[PII:IP:…]` | 192.168.1.100 |
 | API keys & secrets | `[PII:APIKEY:…]` | sk-abc123… / AKIA… / ghp_… |
@@ -253,6 +255,8 @@ Tested across 1,000 random samples per entity type, each embedded in a realistic
 | Phone number | Regex | 1,000 | 1,000 | **100%** |
 | Aadhaar | Regex | 1,000 | 1,000 | **100%** |
 | PAN | Regex | 1,000 | 1,000 | **100%** |
+| SSN | Regex | 1,000 | 1,000 | **100%** |
+| IBAN | Regex + checksum | 1,000 | 1,000 | **100%** |
 | Credit / debit card | Regex + Luhn | 1,000 | 1,000 | **100%** |
 | IP address | Regex | 1,000 | 998 | **99.8%** |
 | API keys | Regex | 1,000 | 1,000 | **100%** |

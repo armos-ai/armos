@@ -18,6 +18,8 @@ ENTITY_TYPES = [
     "CREDIT_CARD",
     "IP_ADDRESS",
     "API_KEY",
+    "US_SSN",
+    "IBAN_CODE",
 ]
 
 ENTITY_SHORT_CODES = {
@@ -29,6 +31,8 @@ ENTITY_SHORT_CODES = {
     "CREDIT_CARD":    "CARD",
     "IP_ADDRESS":     "IP",
     "API_KEY":        "APIKEY",
+    "US_SSN":         "SSN",
+    "IBAN_CODE":      "IBAN",
 }
 
 
