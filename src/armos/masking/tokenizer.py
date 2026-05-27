@@ -20,7 +20,7 @@ class Tokenizer:
         Processes right-to-left to preserve character positions.
         """
         if not entities:
-            return MaskResult(text=text, entities=[])
+            return MaskResult(text=text, entities=[], uncertain=[])
 
         masked_text = text
         for entity in reversed(entities):

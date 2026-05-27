@@ -98,6 +98,41 @@ class DetectionEngine:
         entities.sort(key=lambda e: e.start)
         return self._resolve_overlaps(entities)
 
+    def detect_all(self, text: str, language: str = "en") -> tuple:
+        """
+        Detect PII at a lower threshold to surface near-misses.
+        Returns (certain, uncertain) where:
+          certain   — score >= 0.35, will be masked
+          uncertain — score 0.1–0.35, detected but not masked
+        """
+        if not text or not text.strip():
+            return [], []
+
+        results = self._analyzer.analyze(
+            text=text,
+            entities=ENTITY_TYPES,
+            language=language,
+            score_threshold=0.1,
+        )
+
+        certain, uncertain = [], []
+        for r in results:
+            entity = DetectedEntity(
+                entity_type=ENTITY_SHORT_CODES.get(r.entity_type, r.entity_type),
+                text=text[r.start:r.end],
+                start=r.start,
+                end=r.end,
+                score=r.score,
+            )
+            if r.score >= 0.35:
+                certain.append(entity)
+            else:
+                uncertain.append(entity)
+
+        certain.sort(key=lambda e: e.start)
+        uncertain.sort(key=lambda e: e.start)
+        return self._resolve_overlaps(certain), uncertain
+
     def _resolve_overlaps(self, entities: List[DetectedEntity]) -> List[DetectedEntity]:
         """Remove overlapping detections. Higher confidence wins."""
         if not entities:

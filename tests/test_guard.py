@@ -61,6 +61,23 @@ def test_empty_string(guard):
     result = guard.mask("")
     assert result.text == ""
     assert result.entities == []
+    assert result.uncertain == []
+
+def test_uncertain_is_list(guard):
+    result = guard.mask("Patient John Smith, email john@example.com")
+    assert isinstance(result.uncertain, list)
+
+def test_uncertain_not_masked(guard):
+    """Uncertain entities must not appear as tokens in masked text."""
+    result = guard.mask("Patient John Smith, email john@example.com")
+    for entity in result.uncertain:
+        assert entity.text not in result.text or "[PII:" not in result.text
+
+def test_uncertain_scores_below_threshold(guard):
+    """All uncertain entities must score below the 0.35 masking threshold."""
+    result = guard.mask("Patient John Smith, Aadhaar 2345 6789 0123, email john@hospital.com")
+    for entity in result.uncertain:
+        assert entity.score < 0.35
 
 def test_clean_text_unchanged(guard):
     result = guard.mask("The weather is nice today.")

@@ -31,10 +31,12 @@ class Armos:
     def mask(self, text: str) -> MaskResult:
         """Detect and mask all PII in text."""
         if not text:
-            return MaskResult(text=text or "", entities=[])
+            return MaskResult(text=text or "", entities=[], uncertain=[])
 
-        entities = self._engine.detect(text)
-        return self._tokenizer.mask(text, entities)
+        certain, uncertain = self._engine.detect_all(text)
+        result = self._tokenizer.mask(text, certain)
+        result.uncertain = uncertain
+        return result
 
     def demask(self, text: str) -> str:
         """Restore all tokens in text to their real values."""

@@ -18,6 +18,7 @@ class MaskResult:
     """Result of a masking operation."""
     text: str
     entities: List[DetectedEntity] = field(default_factory=list)
+    uncertain: List[DetectedEntity] = field(default_factory=list)
 
     @property
     def has_pii(self) -> bool:
