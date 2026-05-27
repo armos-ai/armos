@@ -102,3 +102,11 @@ def test_redis_store_missing_url_raises():
 def test_invalid_store_raises():
     with pytest.raises(ValueError, match="Unsupported store"):
         Armos(store="postgres")
+
+
+def test_clear_vault(guard):
+    result = guard.mask("John Smith")
+    token = result.text
+    assert guard.demask(token) == "John Smith"
+    guard.clear_vault()
+    assert guard.demask(token) == token  # unknown after clear — returned as-is

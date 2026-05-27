@@ -5,9 +5,9 @@ from .memory import MemoryVault
 try:
     from .redis import RedisVault
     _redis_available = True
-except ImportError:
-    RedisVault = None
-    _redis_available = False
+except ImportError:  # pragma: no cover
+    RedisVault = None  # pragma: no cover
+    _redis_available = False  # pragma: no cover
 
 __all__ = ["BaseVault", "MemoryVault", "RedisVault"]
 

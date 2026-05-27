@@ -1,7 +1,56 @@
 # SPDX-License-Identifier: MIT
 from typing import Any, Literal
 from ..guard import Armos, _DEFAULT_VAULT_TTL
-from .base import _MaskingMixin, SYSTEM_HINT
+from .base import _MaskingMixin, _StreamingDemasker, SYSTEM_HINT
+
+
+class _ArmosOpenAIStream:
+    """
+    Wraps an OpenAI Stream[ChatCompletionChunk].
+    Demaskes PII tokens in delta.content as chunks arrive, handling the case
+    where a token is split across multiple chunks.
+    """
+
+    def __init__(self, stream: Any, demask_fn):
+        self._stream = stream
+        self._demasker = _StreamingDemasker(demask_fn)
+
+    def __iter__(self):
+        for chunk in self._stream:
+            choices = getattr(chunk, "choices", None)
+            if not choices:
+                yield chunk
+                continue
+
+            choice = choices[0]
+            delta = choice.delta
+            content = getattr(delta, "content", None)
+            finish_reason = getattr(choice, "finish_reason", None)
+
+            output = ""
+            if content:
+                output = self._demasker.feed(content)
+            if finish_reason:
+                output += self._demasker.flush()
+
+            if output:
+                delta.content = output
+                yield chunk
+            elif finish_reason:
+                yield chunk
+            # else: buffering — skip empty chunk
+
+    def __enter__(self):
+        if hasattr(self._stream, "__enter__"):
+            self._stream.__enter__()
+        return self
+
+    def __exit__(self, *args):
+        if hasattr(self._stream, "__exit__"):
+            return self._stream.__exit__(*args)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._stream, name)
 
 
 class ArmosCompletions(_MaskingMixin):
@@ -22,6 +71,9 @@ class ArmosCompletions(_MaskingMixin):
                     kwargs["messages"] = [{"role": "system", "content": SYSTEM_HINT}] + msgs
 
         response = self._completions.create(**kwargs)
+
+        if kwargs.get("stream"):
+            return _ArmosOpenAIStream(response, self._guard.demask)
         return self._demask_response(response)
 
     def _demask_response(self, response: Any) -> Any:

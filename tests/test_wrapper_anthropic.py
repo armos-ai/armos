@@ -1,6 +1,25 @@
 import pytest
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 from armos.wrappers.anthropic import ArmosAnthropic
+
+
+def make_anthropic_text_event(text, index=0):
+    return SimpleNamespace(
+        type="content_block_delta",
+        index=index,
+        delta=SimpleNamespace(type="text_delta", text=text),
+    )
+
+
+def make_anthropic_stop_event(index=0):
+    return SimpleNamespace(type="content_block_stop", index=index)
+
+
+def make_mock_stream(texts):
+    events = [make_anthropic_text_event(t) for t in texts]
+    events.append(make_anthropic_stop_event())
+    return iter(events)
 
 
 def make_mock_anthropic_response(content: str):
@@ -95,3 +114,104 @@ def test_system_hint_appended_to_existing_system_prompt():
     call_kwargs = client.messages.create.call_args[1]
     assert "You are a medical assistant." in call_kwargs["system"]
     assert "PII" in call_kwargs["system"]
+
+
+# ---------------------------------------------------------------------------
+# Streaming tests
+# ---------------------------------------------------------------------------
+
+def test_anthropic_streaming_masks_request_before_sending():
+    """Outbound masking works the same with stream=True."""
+    client = MagicMock()
+    client.messages.create.return_value = make_mock_stream(["ok"])
+    armos_client = ArmosAnthropic(client)
+
+    stream = armos_client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=256,
+        stream=True,
+        messages=[{"role": "user", "content": "Patient John Smith, Aadhaar 2345 6789 0123"}],
+    )
+    list(stream)
+
+    call_kwargs = client.messages.create.call_args[1]
+    sent_content = call_kwargs["messages"][0]["content"]
+    assert "John Smith" not in sent_content
+    assert "[PII:" in sent_content
+
+
+def test_anthropic_streaming_demaskes_token_in_response():
+    """A PII token in the stream is demasked in the yielded event."""
+    from armos import Armos
+    guard = Armos()
+    result = guard.mask("John Smith")
+    token = result.text
+
+    client = MagicMock()
+    client.messages.create.return_value = make_mock_stream([f"Hello {token}!"])
+    armos_client = ArmosAnthropic(client)
+
+    stream = armos_client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=256,
+        stream=True,
+        messages=[{"role": "user", "content": "Hello John Smith"}],
+    )
+    text = "".join(
+        e.delta.text
+        for e in stream
+        if e.type == "content_block_delta" and e.delta.type == "text_delta"
+    )
+    assert "John Smith" in text
+    assert "[PII:" not in text
+
+
+def test_anthropic_streaming_token_split_across_chunks():
+    """Token split across chunks is reassembled and demasked."""
+    from armos import Armos
+    guard = Armos()
+    result = guard.mask("John Smith")
+    token = result.text
+
+    mid = len(token) // 2
+    client = MagicMock()
+    client.messages.create.return_value = make_mock_stream([token[:mid], token[mid:]])
+    armos_client = ArmosAnthropic(client)
+
+    stream = armos_client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=256,
+        stream=True,
+        messages=[{"role": "user", "content": "Hello John Smith"}],
+    )
+    text = "".join(
+        e.delta.text
+        for e in stream
+        if e.type == "content_block_delta" and e.delta.type == "text_delta"
+    )
+    assert "John Smith" in text
+    assert "[PII:" not in text
+
+
+def test_messages_demask_response_no_content():
+    """_demask_response returns response unchanged when it has no content attr."""
+    from armos.wrappers.anthropic import ArmosMessages
+    from armos import Armos
+    guard = Armos()
+    mock_messages = MagicMock()
+    msgs = ArmosMessages(mock_messages, guard)
+
+    response_no_content = MagicMock(spec=[])
+    result = msgs._demask_response(response_no_content)
+    assert result is response_no_content
+
+
+def test_messages_getattr_delegates():
+    """ArmosMessages.__getattr__ forwards to underlying messages."""
+    from armos.wrappers.anthropic import ArmosMessages
+    from armos import Armos
+    guard = Armos()
+    mock_messages = MagicMock()
+    mock_messages.some_method.return_value = "ok"
+    msgs = ArmosMessages(mock_messages, guard)
+    assert msgs.some_method() == "ok"

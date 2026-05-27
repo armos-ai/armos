@@ -1,7 +1,62 @@
 # SPDX-License-Identifier: MIT
+from types import SimpleNamespace
 from typing import Any, Literal
 from ..guard import Armos, _DEFAULT_VAULT_TTL
-from .base import _MaskingMixin, SYSTEM_HINT
+from .base import _MaskingMixin, _StreamingDemasker, SYSTEM_HINT
+
+
+class _ArmosAnthropicStream:
+    """
+    Wraps an Anthropic Stream[MessageStreamEvent].
+    Demaskes PII tokens in content_block_delta text events, handling tokens
+    split across multiple chunks. Flushes buffer before content_block_stop.
+    """
+
+    def __init__(self, stream: Any, demask_fn):
+        self._stream = stream
+        self._demasker = _StreamingDemasker(demask_fn)
+
+    def __iter__(self):
+        for event in self._stream:
+            event_type = getattr(event, "type", None)
+
+            if event_type == "content_block_delta":
+                delta = getattr(event, "delta", None)
+                if delta and getattr(delta, "type", None) == "text_delta":
+                    text = getattr(delta, "text", "") or ""
+                    safe = self._demasker.feed(text)
+                    if safe:
+                        delta.text = safe
+                        yield event
+                    # else: buffering — skip
+                else:
+                    yield event
+
+            elif event_type == "content_block_stop":
+                remaining = self._demasker.flush()
+                if remaining:
+                    # Emit a synthetic text_delta before the stop event
+                    yield SimpleNamespace(
+                        type="content_block_delta",
+                        index=getattr(event, "index", 0),
+                        delta=SimpleNamespace(type="text_delta", text=remaining),
+                    )
+                yield event
+
+            else:
+                yield event
+
+    def __enter__(self):
+        if hasattr(self._stream, "__enter__"):
+            self._stream.__enter__()
+        return self
+
+    def __exit__(self, *args):
+        if hasattr(self._stream, "__exit__"):
+            return self._stream.__exit__(*args)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._stream, name)
 
 
 class ArmosMessages(_MaskingMixin):
@@ -21,6 +76,9 @@ class ArmosMessages(_MaskingMixin):
             kwargs["system"] = (existing + "\n\n" + SYSTEM_HINT).strip() if existing else SYSTEM_HINT
 
         response = self._messages.create(**kwargs)
+
+        if kwargs.get("stream"):
+            return _ArmosAnthropicStream(response, self._guard.demask)
         return self._demask_response(response)
 
     def _demask_response(self, response: Any) -> Any:

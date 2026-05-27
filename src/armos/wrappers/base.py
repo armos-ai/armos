@@ -1,7 +1,68 @@
 # SPDX-License-Identifier: MIT
-from typing import Any, List
+import re
+from typing import Any, Callable, List
 
 SYSTEM_HINT = "Reproduce any [PII:TYPE:HASH] tokens in your response exactly as written."
+
+_PII_PREFIX = "[PII:"
+
+
+def _is_partial_token(s: str) -> bool:
+    """
+    Return True if s is an incomplete prefix of a [PII:TYPE:HASH] token.
+    Handles the case where the LLM streams the token character-by-character,
+    e.g. '[', '[P', '[PI', '[PII:', '[PII:NAME', '[PII:NAME:c458'.
+    """
+    if not s or s.endswith("]"):
+        return False
+    if len(s) <= len(_PII_PREFIX):
+        return _PII_PREFIX.startswith(s)
+    if not s.startswith(_PII_PREFIX):
+        return False
+    rest = s[len(_PII_PREFIX):]
+    return bool(re.match(r"^[A-Z]*:?[a-f0-9]{0,8}$", rest))
+
+
+class _StreamingDemasker:
+    """
+    Buffers streaming text chunks and demaskes complete PII tokens as they arrive.
+
+    A token like [PII:NAME:c4587843] may arrive split across many chunks
+    (e.g. '[', 'PI', 'I', ':', 'NAME', ':c', '458', '784', '3', ']').
+    This class holds back text from the point a potential token prefix appears
+    until the closing ] arrives, then releases the fully demasked text.
+    """
+
+    def __init__(self, demask_fn: Callable[[str], str]):
+        self._demask = demask_fn
+        self._buffer = ""
+
+    def feed(self, text: str) -> str:
+        """Feed one chunk. Returns safe-to-yield demasked text (empty if still buffering)."""
+        self._buffer += text
+        return self._flush_safe()
+
+    def flush(self) -> str:
+        """End of stream — release everything remaining (partial tokens left as-is)."""
+        result = self._demask(self._buffer)
+        self._buffer = ""
+        return result
+
+    def _flush_safe(self) -> str:
+        buf = self._buffer
+        last_bracket = buf.rfind("[")
+        if last_bracket == -1:
+            self._buffer = ""
+            return self._demask(buf)
+        tail = buf[last_bracket:]
+        if _is_partial_token(tail):
+            # Hold the partial prefix, yield everything before it
+            self._buffer = tail
+            safe = buf[:last_bracket]
+            return self._demask(safe) if safe else ""
+        # [ is present but it's a complete token or a non-PII bracket — safe to flush all
+        self._buffer = ""
+        return self._demask(buf)
 
 
 class _MaskingMixin:

@@ -66,3 +66,57 @@ def test_multiple_entities(engine):
     text = "Patient John Smith, Aadhaar 2345 6789 0123, email john@hospital.com"
     entities = engine.detect(text)
     assert len(entities) >= 3
+
+
+def test_detect_all_empty_string(engine):
+    certain, uncertain = engine.detect_all("")
+    assert certain == []
+    assert uncertain == []
+
+
+def test_detect_all_whitespace_only(engine):
+    certain, uncertain = engine.detect_all("   ")
+    assert certain == []
+    assert uncertain == []
+
+
+def test_detect_all_returns_uncertain_for_low_score():
+    """Entities scoring < 0.35 go to the uncertain list, not masked."""
+    from unittest.mock import patch, MagicMock
+    from armos.detection.engine import DetectionEngine, ENTITY_SHORT_CODES
+
+    engine = DetectionEngine()
+    mock_result = MagicMock()
+    mock_result.entity_type = "PERSON"
+    mock_result.start = 0
+    mock_result.end = 4
+    mock_result.score = 0.2
+
+    with patch.object(engine._analyzer, "analyze", return_value=[mock_result]):
+        certain, uncertain = engine.detect_all("John")
+
+    assert len(certain) == 0
+    assert len(uncertain) == 1
+    assert uncertain[0].score == 0.2
+    assert uncertain[0].entity_type == "NAME"
+
+
+def test_resolve_overlaps_higher_score_wins(engine):
+    """When two entities overlap, the higher-confidence one is kept."""
+    from armos.models import DetectedEntity
+    entities = [
+        DetectedEntity(entity_type="NAME", text="John Smith", start=0, end=10, score=0.5),
+        DetectedEntity(entity_type="NAME", text="John",       start=0, end=4,  score=0.85),
+    ]
+    resolved = engine._resolve_overlaps(entities)
+    assert len(resolved) == 1
+    assert resolved[0].score == 0.85
+
+
+def test_ensure_model_downloads_when_missing():
+    from unittest.mock import patch
+    from armos.detection.engine import _ensure_model
+    with patch("armos.detection.engine.spacy.util.is_package", return_value=False), \
+         patch("armos.detection.engine.spacy.cli.download") as mock_dl:
+        _ensure_model()
+    mock_dl.assert_called_once_with("en_core_web_lg")

@@ -27,13 +27,13 @@ class BaseVault(ABC):
         return f"{entity_type.upper()}:{normalised}"
 
     @abstractmethod
-    def store(self, real_value: str, entity_type: str) -> str:
+    def store(self, real_value: str, entity_type: str) -> str:  # pragma: no cover
         pass
 
     @abstractmethod
-    def retrieve(self, token: str) -> Optional[str]:
+    def retrieve(self, token: str) -> Optional[str]:  # pragma: no cover
         pass
 
     @abstractmethod
-    def clear(self) -> None:
+    def clear(self) -> None:  # pragma: no cover
         pass

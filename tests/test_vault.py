@@ -55,3 +55,14 @@ def test_generate_token_in_base():
     t2 = vault.generate_token("John Smith", "NAME")
     assert t1 == t2
     assert t1.startswith("[PII:NAME:")
+
+
+def test_memory_vault_len():
+    vault = MemoryVault()
+    assert len(vault) == 0
+    vault.store("John Smith", "NAME")
+    assert len(vault) == 1
+    vault.store("jane@example.com", "EMAIL")
+    assert len(vault) == 2
+    vault.clear()
+    assert len(vault) == 0
