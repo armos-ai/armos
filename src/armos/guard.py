@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: MIT
+import asyncio
 from typing import Literal
 from .models import MaskResult
 from .detection.engine import DetectionEngine
@@ -41,6 +42,14 @@ class Armos:
     def demask(self, text: str) -> str:
         """Restore all tokens in text to their real values."""
         return self._tokenizer.demask(text)
+
+    async def amask(self, text: str) -> MaskResult:
+        """Async version of mask(). Runs spaCy/Presidio detection in a thread pool."""
+        return await asyncio.to_thread(self.mask, text)
+
+    async def ademask(self, text: str) -> str:
+        """Async version of demask(). Runs in a thread pool."""
+        return await asyncio.to_thread(self.demask, text)
 
     def clear_vault(self) -> None:
         """Clear all stored token mappings."""

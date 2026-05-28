@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: MIT
 from typing import Any, Literal
 from ..guard import Armos, _DEFAULT_VAULT_TTL
-from .base import _MaskingMixin, _StreamingDemasker, SYSTEM_HINT
+from .base import (
+    _MaskingMixin, _AsyncMaskingMixin,
+    _StreamingDemasker, _ArmosOpenAIAsyncStream,
+    SYSTEM_HINT,
+)
 
 
 class _ArmosOpenAIStream:
@@ -184,6 +188,142 @@ class ArmosOpenAI:
         self.chat = ArmosChat(client.chat, self._guard)
         self.responses = ArmosResponses(client.responses, self._guard)
         self.embeddings = ArmosEmbeddings(client.embeddings, self._guard)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._client, name)
+
+
+# ── Async wrappers ────────────────────────────────────────────────────────────
+
+class ArmosAsyncCompletions(_AsyncMaskingMixin):
+    """Wraps openai.resources.chat.completions.AsyncCompletions."""
+
+    def __init__(self, completions: Any, guard: Armos):
+        self._completions = completions
+        self._guard = guard
+
+    async def create(self, **kwargs) -> Any:
+        if "messages" in kwargs:
+            kwargs["messages"], has_pii = await self._mask_messages_async(kwargs["messages"])
+            if has_pii:
+                msgs = kwargs["messages"]
+                if msgs and msgs[0].get("role") == "system":
+                    msgs[0] = {**msgs[0], "content": msgs[0]["content"] + "\n\n" + SYSTEM_HINT}
+                else:
+                    kwargs["messages"] = [{"role": "system", "content": SYSTEM_HINT}] + msgs
+
+        response = await self._completions.create(**kwargs)
+
+        if kwargs.get("stream"):
+            return _ArmosOpenAIAsyncStream(response, self._guard.demask)
+        return self._demask_response(response)
+
+    def _demask_response(self, response: Any) -> Any:
+        if not hasattr(response, "choices"):
+            return response
+        for choice in response.choices:
+            if hasattr(choice, "message") and choice.message and choice.message.content:
+                choice.message.content = self._guard.demask(choice.message.content)
+        return response
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._completions, name)
+
+
+class ArmosAsyncChat:
+    """Wraps openai.resources.chat.AsyncChat."""
+
+    def __init__(self, chat: Any, guard: Armos):
+        self._chat = chat
+        self.completions = ArmosAsyncCompletions(chat.completions, guard)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._chat, name)
+
+
+class ArmosAsyncResponses(_AsyncMaskingMixin):
+    """Wraps openai.resources.responses.AsyncResponses."""
+
+    def __init__(self, responses: Any, guard: Armos):
+        self._responses = responses
+        self._guard = guard
+
+    async def create(self, **kwargs) -> Any:
+        has_pii = False
+
+        if "input" in kwargs:
+            inp = kwargs["input"]
+            if isinstance(inp, str):
+                kwargs["input"], has_pii = await self._mask_string_async(inp)
+            elif isinstance(inp, list):
+                kwargs["input"], has_pii = await self._mask_messages_async(inp)
+
+        if has_pii:
+            existing = kwargs.get("instructions") or ""
+            kwargs["instructions"] = (existing + "\n\n" + SYSTEM_HINT).strip() if existing else SYSTEM_HINT
+
+        response = await self._responses.create(**kwargs)
+        return self._demask_response(response)
+
+    def _demask_response(self, response: Any) -> Any:
+        if not hasattr(response, "output"):
+            return response
+        for item in response.output:
+            if hasattr(item, "content") and isinstance(item.content, list):
+                for block in item.content:
+                    if hasattr(block, "text") and block.text:
+                        block.text = self._guard.demask(block.text)
+        return response
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._responses, name)
+
+
+class ArmosAsyncEmbeddings(_AsyncMaskingMixin):
+    """Wraps openai.resources.embeddings.AsyncEmbeddings."""
+
+    def __init__(self, embeddings: Any, guard: Armos):
+        self._embeddings = embeddings
+        self._guard = guard
+
+    async def create(self, **kwargs) -> Any:
+        if "input" in kwargs:
+            inp = kwargs["input"]
+            if isinstance(inp, str):
+                kwargs["input"], _ = await self._mask_string_async(inp)
+            elif isinstance(inp, list):
+                kwargs["input"], _ = await self._mask_input_list_async(inp)
+
+        return await self._embeddings.create(**kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._embeddings, name)
+
+
+class ArmosAsyncOpenAI:
+    """
+    Drop-in replacement for openai.AsyncOpenAI.
+    Masks PII in prompts before sending to OpenAI.
+    Restores real values in responses.
+
+    Usage:
+        from openai import AsyncOpenAI
+        from armos import ArmosAsyncOpenAI
+        client = ArmosAsyncOpenAI(AsyncOpenAI())
+    """
+
+    def __init__(
+        self,
+        client: Any,
+        store: Literal["redis"] | None = None,
+        redis_url: str | None = None,
+        vault_ttl: int = _DEFAULT_VAULT_TTL,
+    ):
+        self._client = client
+        self._guard = Armos(store=store, redis_url=redis_url, vault_ttl=vault_ttl)
+        self.chat = ArmosAsyncChat(client.chat, self._guard)
+        self.responses = ArmosAsyncResponses(client.responses, self._guard)
+        self.embeddings = ArmosAsyncEmbeddings(client.embeddings, self._guard)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._client, name)

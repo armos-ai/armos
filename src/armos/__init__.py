@@ -15,15 +15,17 @@ Quick start:
 """
 
 from .guard import Armos
-from .wrappers.openai import ArmosOpenAI
-from .wrappers.anthropic import ArmosAnthropic
+from .wrappers.openai import ArmosOpenAI, ArmosAsyncOpenAI
+from .wrappers.anthropic import ArmosAnthropic, ArmosAsyncAnthropic
 from .models import MaskResult, DetectedEntity
 
-__version__ = "0.1.1"
+__version__ = "1.3.0"
 __all__ = [
     "Armos",
     "ArmosOpenAI",
+    "ArmosAsyncOpenAI",
     "ArmosAnthropic",
+    "ArmosAsyncAnthropic",
     "MaskResult",
     "DetectedEntity",
 ]

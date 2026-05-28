@@ -55,6 +55,28 @@ def test_detects_iban(engine):
     entities = engine.detect("Please transfer to IBAN GB29NWBK60161331926819.")
     assert any(e.entity_type == "IBAN" for e in entities)
 
+def test_detects_us_street_address(engine):
+    entities = engine.detect("My address is 123 Main Street, please come by.")
+    assert any(e.entity_type == "ADDRESS" for e in entities)
+
+def test_detects_full_us_address(engine):
+    entities = engine.detect("Ship to 456 Oak Avenue, San Francisco, CA 94102")
+    assert any(e.entity_type == "ADDRESS" for e in entities)
+
+def test_detects_po_box(engine):
+    entities = engine.detect("Mailing address: P.O. Box 4521, New York")
+    assert any(e.entity_type == "ADDRESS" for e in entities)
+
+def test_detects_indian_flat_address(engine):
+    entities = engine.detect("I live at Flat 4B, Koramangala, Bangalore")
+    assert any(e.entity_type == "ADDRESS" for e in entities)
+
+def test_address_masked_in_guard():
+    from armos import Armos
+    guard = Armos()
+    result = guard.mask("Ship to 123 Oak Avenue, please process quickly")
+    assert "[PII:ADDRESS:" in result.text
+
 def test_no_false_positives(engine):
     entities = engine.detect("The weather in Bangalore is pleasant today.")
     assert len(entities) == 0

@@ -8,6 +8,7 @@ from ..models import DetectedEntity
 from .recognisers.aadhaar import AadhaarRecogniser
 from .recognisers.pan import PANRecogniser
 from .recognisers.standard import APIKeyRecogniser
+from .recognisers.address import PhysicalAddressRecogniser
 
 _MODEL = "en_core_web_lg"
 
@@ -30,19 +31,21 @@ ENTITY_TYPES = [
     "API_KEY",
     "US_SSN",
     "IBAN_CODE",
+    "PHYSICAL_ADDRESS",
 ]
 
 ENTITY_SHORT_CODES = {
-    "PERSON":         "NAME",
-    "EMAIL_ADDRESS":  "EMAIL",
-    "PHONE_NUMBER":   "PHONE",
-    "AADHAAR_NUMBER": "AADHAAR",
-    "IN_PAN":         "PAN",
-    "CREDIT_CARD":    "CARD",
-    "IP_ADDRESS":     "IP",
-    "API_KEY":        "APIKEY",
-    "US_SSN":         "SSN",
-    "IBAN_CODE":      "IBAN",
+    "PERSON":           "NAME",
+    "EMAIL_ADDRESS":    "EMAIL",
+    "PHONE_NUMBER":     "PHONE",
+    "AADHAAR_NUMBER":   "AADHAAR",
+    "IN_PAN":           "PAN",
+    "CREDIT_CARD":      "CARD",
+    "IP_ADDRESS":       "IP",
+    "API_KEY":          "APIKEY",
+    "US_SSN":           "SSN",
+    "IBAN_CODE":        "IBAN",
+    "PHYSICAL_ADDRESS": "ADDRESS",
 }
 
 
@@ -70,6 +73,7 @@ class DetectionEngine:
         registry.add_recognizer(AadhaarRecogniser())
         registry.add_recognizer(PANRecogniser())
         registry.add_recognizer(APIKeyRecogniser())
+        registry.add_recognizer(PhysicalAddressRecogniser())
 
         return AnalyzerEngine(nlp_engine=nlp_engine, registry=registry)
 

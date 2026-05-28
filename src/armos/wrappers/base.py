@@ -124,3 +124,155 @@ class _MaskingMixin:
             else:
                 masked.append(item)
         return masked, any_pii
+
+
+class _AsyncMaskingMixin:
+    """
+    Async counterpart to _MaskingMixin.
+
+    Subclasses must set self._guard (an Armos instance) before calling any method.
+    mask() delegates to guard.amask() which runs spaCy in a thread pool.
+    demask() is called synchronously — it's pure regex + dict lookup, fast enough.
+    """
+
+    async def _mask_string_async(self, text: str) -> tuple:
+        if self._guard._tokenizer.contains_tokens(text):
+            return text, False
+        result = await self._guard.amask(text)
+        return (result.text, True) if result.has_pii else (text, False)
+
+    async def _mask_messages_async(self, messages: List[dict]) -> tuple:
+        masked = []
+        any_pii = False
+        for msg in messages:
+            content = msg.get("content")
+            if isinstance(content, str):
+                masked_text, pii = await self._mask_string_async(content)
+                if pii:
+                    any_pii = True
+                    msg = {**msg, "content": masked_text}
+            elif isinstance(content, list):
+                masked_blocks = []
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        text = block.get("text", "")
+                        masked_text, pii = await self._mask_string_async(text)
+                        if pii:
+                            any_pii = True
+                            block = {**block, "text": masked_text}
+                    masked_blocks.append(block)
+                msg = {**msg, "content": masked_blocks}
+            masked.append(msg)
+        return masked, any_pii
+
+    async def _mask_input_list_async(self, items: list) -> tuple:
+        masked = []
+        any_pii = False
+        for item in items:
+            if isinstance(item, str):
+                masked_text, pii = await self._mask_string_async(item)
+                if pii:
+                    any_pii = True
+                masked.append(masked_text)
+            else:
+                masked.append(item)
+        return masked, any_pii
+
+
+class _ArmosOpenAIAsyncStream:
+    """
+    Wraps an OpenAI AsyncStream[ChatCompletionChunk].
+    Async counterpart to _ArmosOpenAIStream.
+    """
+
+    def __init__(self, stream: Any, demask_fn: Callable[[str], str]):
+        self._stream = stream
+        self._demasker = _StreamingDemasker(demask_fn)
+
+    async def __aiter__(self):
+        async for chunk in self._stream:
+            choices = getattr(chunk, "choices", None)
+            if not choices:
+                yield chunk
+                continue
+
+            choice = choices[0]
+            delta = choice.delta
+            content = getattr(delta, "content", None)
+            finish_reason = getattr(choice, "finish_reason", None)
+
+            output = ""
+            if content:
+                output = self._demasker.feed(content)
+            if finish_reason:
+                output += self._demasker.flush()
+
+            if output:
+                delta.content = output
+                yield chunk
+            elif finish_reason:
+                yield chunk
+
+    async def __aenter__(self):
+        if hasattr(self._stream, "__aenter__"):
+            await self._stream.__aenter__()
+        return self
+
+    async def __aexit__(self, *args):
+        if hasattr(self._stream, "__aexit__"):
+            return await self._stream.__aexit__(*args)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._stream, name)
+
+
+class _ArmosAnthropicAsyncStream:
+    """
+    Wraps an Anthropic AsyncStream[MessageStreamEvent].
+    Async counterpart to _ArmosAnthropicStream.
+    """
+
+    def __init__(self, stream: Any, demask_fn: Callable[[str], str]):
+        self._stream = stream
+        self._demasker = _StreamingDemasker(demask_fn)
+
+    async def __aiter__(self):
+        from types import SimpleNamespace
+        async for event in self._stream:
+            event_type = getattr(event, "type", None)
+
+            if event_type == "content_block_delta":
+                delta = getattr(event, "delta", None)
+                if delta and getattr(delta, "type", None) == "text_delta":
+                    text = getattr(delta, "text", "") or ""
+                    safe = self._demasker.feed(text)
+                    if safe:
+                        delta.text = safe
+                        yield event
+                else:
+                    yield event
+
+            elif event_type == "content_block_stop":
+                remaining = self._demasker.flush()
+                if remaining:
+                    yield SimpleNamespace(
+                        type="content_block_delta",
+                        index=getattr(event, "index", 0),
+                        delta=SimpleNamespace(type="text_delta", text=remaining),
+                    )
+                yield event
+
+            else:
+                yield event
+
+    async def __aenter__(self):
+        if hasattr(self._stream, "__aenter__"):
+            await self._stream.__aenter__()
+        return self
+
+    async def __aexit__(self, *args):
+        if hasattr(self._stream, "__aexit__"):
+            return await self._stream.__aexit__(*args)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._stream, name)

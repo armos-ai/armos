@@ -2,7 +2,11 @@
 from types import SimpleNamespace
 from typing import Any, Literal
 from ..guard import Armos, _DEFAULT_VAULT_TTL
-from .base import _MaskingMixin, _StreamingDemasker, SYSTEM_HINT
+from .base import (
+    _MaskingMixin, _AsyncMaskingMixin,
+    _StreamingDemasker, _ArmosAnthropicAsyncStream,
+    SYSTEM_HINT,
+)
 
 
 class _ArmosAnthropicStream:
@@ -115,6 +119,69 @@ class ArmosAnthropic:
         self._client = client
         self._guard = Armos(store=store, redis_url=redis_url, vault_ttl=vault_ttl)
         self.messages = ArmosMessages(client.messages, self._guard)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._client, name)
+
+
+# ── Async wrappers ────────────────────────────────────────────────────────────
+
+class ArmosAsyncMessages(_AsyncMaskingMixin):
+    """Wraps anthropic.resources.AsyncMessages."""
+
+    def __init__(self, messages: Any, guard: Armos):
+        self._messages = messages
+        self._guard = guard
+
+    async def create(self, **kwargs) -> Any:
+        has_pii = False
+        if "messages" in kwargs:
+            kwargs["messages"], has_pii = await self._mask_messages_async(kwargs["messages"])
+
+        if has_pii:
+            existing = kwargs.get("system") or ""
+            kwargs["system"] = (existing + "\n\n" + SYSTEM_HINT).strip() if existing else SYSTEM_HINT
+
+        response = await self._messages.create(**kwargs)
+
+        if kwargs.get("stream"):
+            return _ArmosAnthropicAsyncStream(response, self._guard.demask)
+        return self._demask_response(response)
+
+    def _demask_response(self, response: Any) -> Any:
+        if not hasattr(response, "content"):
+            return response
+        for block in response.content:
+            if hasattr(block, "text") and block.text:
+                block.text = self._guard.demask(block.text)
+        return response
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._messages, name)
+
+
+class ArmosAsyncAnthropic:
+    """
+    Drop-in replacement for anthropic.AsyncAnthropic.
+    Masks PII in prompts before sending to Anthropic.
+    Restores real values in responses.
+
+    Usage:
+        from anthropic import AsyncAnthropic
+        from armos import ArmosAsyncAnthropic
+        client = ArmosAsyncAnthropic(AsyncAnthropic())
+    """
+
+    def __init__(
+        self,
+        client: Any,
+        store: Literal["redis"] | None = None,
+        redis_url: str | None = None,
+        vault_ttl: int = _DEFAULT_VAULT_TTL,
+    ):
+        self._client = client
+        self._guard = Armos(store=store, redis_url=redis_url, vault_ttl=vault_ttl)
+        self.messages = ArmosAsyncMessages(client.messages, self._guard)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._client, name)

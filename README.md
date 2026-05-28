@@ -141,6 +141,35 @@ client = ArmosAnthropic(Anthropic(), store="redis", redis_url="redis://localhost
 client = ArmosOpenAI(OpenAI(), store="redis", redis_url="redis://localhost:6379", vault_ttl=3600)
 ```
 
+### Async (OpenAI / Anthropic)
+
+```python
+from openai import AsyncOpenAI
+from armos import ArmosAsyncOpenAI
+
+client = ArmosAsyncOpenAI(AsyncOpenAI())
+
+response = await client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Patient Priya Sharma, Aadhaar 2345 6789 0123"}]
+)
+```
+
+Same pattern for Anthropic:
+
+```python
+from anthropic import AsyncAnthropic
+from armos import ArmosAsyncAnthropic
+
+client = ArmosAsyncAnthropic(AsyncAnthropic())
+
+response = await client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=100,
+    messages=[{"role": "user", "content": "Employee Rahul Mehta, PAN ABCDE1234F"}]
+)
+```
+
 ### Standalone (any LLM or framework)
 
 ```python
@@ -159,6 +188,13 @@ print(restored)
 # → "Patient John Smith, Aadhaar 2345 6789 0123, email john@hospital.com"
 ```
 
+Async variants are also available on the standalone guard:
+
+```python
+result = await guard.amask("Patient John Smith, Aadhaar 2345 6789 0123")
+restored = await guard.ademask(result.text)
+```
+
 ---
 
 ## What gets detected
@@ -175,6 +211,7 @@ print(restored)
 | Credit / debit card | `[PII:CARD:…]` | 4111 1111 1111 1111 |
 | IP address | `[PII:IP:…]` | 192.168.1.100 |
 | API keys & secrets | `[PII:APIKEY:…]` | sk-abc123… / AKIA… / ghp_… |
+| Physical address | `[PII:ADDRESS:…]` | 123 Oak Ave, Chicago, IL 60601 / Flat 4B, Koramangala, Bangalore |
 
 ---
 
@@ -255,8 +292,10 @@ Tested across 1,000 random samples per entity type, each embedded in a realistic
 | Credit / debit card | Regex + Luhn | 1,000 | 1,000 | **100%** |
 | IP address | Regex | 1,000 | 998 | **99.8%** |
 | API keys | Regex | 1,000 | 1,000 | **100%** |
+| Physical address (US) | Regex | 2,000 | 1,999 | **100%** |
+| Physical address (India) | Regex | 2,000 | 1,999 | **100%** |
 
-Regex-based entities (Aadhaar, PAN, phone, card, API keys) are near-perfect. Indian name detection uses `en_core_web_lg` NER — the ~4% miss rate is on uncommon name combinations without enough surrounding context. Email misses (~12%) occur when Presidio's confidence falls below threshold on short or unusual address formats.
+Regex-based entities (Aadhaar, PAN, phone, card, API keys) are near-perfect. Indian name detection uses `en_core_web_lg` NER — the ~4% miss rate is on uncommon name combinations without enough surrounding context. Address detection covers full US addresses, street-only, P.O. Box, and Indian formats (flat, house, plot, named locality) across 8 sub-categories benchmarked at 500 samples each.
 
 ---
 
@@ -266,7 +305,6 @@ Regex-based entities (Aadhaar, PAN, phone, card, API keys) are near-perfect. Ind
 2. **Token length** — `[PII:NAME:a1b2c3d4]` is 18 chars vs `John` (4 chars). Near context-window limits this may push content over. Rare in practice.
 3. **Casing: first-seen wins** — De-masking always restores the first-seen casing of an entity. Use consistent casing in your prompts for exact restoration.
 4. **Streaming not supported** — `stream=True` passes through without masking. (planned)
-5. **Async clients not supported** — `AsyncOpenAI`, `AsyncAnthropic` pass through without masking. (planned)
 
 ---
 
