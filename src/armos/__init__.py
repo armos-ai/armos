@@ -19,7 +19,7 @@ from .wrappers.openai import ArmosOpenAI, ArmosAsyncOpenAI
 from .wrappers.anthropic import ArmosAnthropic, ArmosAsyncAnthropic
 from .models import MaskResult, DetectedEntity
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "Armos",
     "ArmosOpenAI",
