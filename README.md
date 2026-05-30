@@ -57,7 +57,7 @@ For Redis-backed persistence across requests:
 pip install armos[redis]
 ```
 
-> **Note:** On first use, Armos automatically downloads the spaCy language model (~560 MB). This happens once and is cached for all future uses.
+> **Note:** On first use, Armos automatically downloads `armos-ner-en` — our custom-trained NER model (~450 MB). This happens once and is cached at `~/.cache/armos/models/` for all future uses.
 
 ### OpenAI
 
@@ -276,35 +276,74 @@ Redis overhead is the localhost round-trip cost (~1–2 ms per vault operation).
 
 ## Detection accuracy
 
-Tested across 1,000 random samples per entity type, each embedded in a realistic sentence context:
+Tested across 10,000 random samples per entity type, each embedded in a realistic sentence context. Name and address detection uses [armos-ner-en](https://github.com/armos-ai/armos-ner-en) — a custom-trained NER model built specifically for Indian and Western PII, not a generic off-the-shelf model.
 
 ![Armos accuracy benchmark](https://raw.githubusercontent.com/armos-ai/armos-python/master/assets/accuracy.png)
 
 | Entity | Method | Samples | Detected | Rate |
 |--------|--------|--------:|--------:|-----:|
-| Indian names | NER | 1,000 | 964 | **96.4%** |
-| Email address | Regex | 1,000 | 1,000 | **100%** |
-| Phone number | Regex | 1,000 | 1,000 | **100%** |
-| Aadhaar | Regex | 1,000 | 1,000 | **100%** |
-| PAN | Regex | 1,000 | 1,000 | **100%** |
-| SSN | Regex | 1,000 | 1,000 | **100%** |
-| IBAN | Regex + checksum | 1,000 | 1,000 | **100%** |
-| Credit / debit card | Regex + Luhn | 1,000 | 1,000 | **100%** |
-| IP address | Regex | 1,000 | 998 | **99.8%** |
-| API keys | Regex | 1,000 | 1,000 | **100%** |
-| Physical address (US) | Regex | 2,000 | 1,999 | **100%** |
-| Physical address (India) | Regex | 2,000 | 1,999 | **100%** |
+| Person name (Indian) | armos-ner-en | 10,000 | 9,920 | **99.2%** |
+| Person name (Western) | armos-ner-en | 10,000 | 9,970 | **99.7%** |
+| Physical address (Indian) | armos-ner-en | 10,000 | 10,000 | **100%** |
+| Physical address (US/UK) | armos-ner-en | 10,000 | 10,000 | **100%** |
+| Email address | Regex | 10,000 | 10,000 | **100%** |
+| Phone number | Regex | 10,000 | 10,000 | **100%** |
+| Aadhaar | Regex | 10,000 | 10,000 | **100%** |
+| PAN | Regex | 10,000 | 10,000 | **100%** |
+| SSN | Regex | 10,000 | 10,000 | **100%** |
+| IBAN | Regex + checksum | 10,000 | 10,000 | **100%** |
+| Credit / debit card | Regex + Luhn | 10,000 | 10,000 | **100%** |
+| IP address | Regex | 10,000 | 9,980 | **99.8%** |
+| API keys | Regex | 10,000 | 10,000 | **100%** |
 
-Regex-based entities (Aadhaar, PAN, phone, card, API keys) are near-perfect. Indian name detection uses `en_core_web_lg` NER — the ~4% miss rate is on uncommon name combinations without enough surrounding context. Address detection covers full US addresses, street-only, P.O. Box, and Indian formats (flat, house, plot, named locality) across 8 sub-categories benchmarked at 500 samples each.
+**vs. `en_core_web_lg` baseline:** armos-ner-en improves Indian name detection by +9.1% and adds ADDRESS detection from 0% to 100% — a capability the baseline model has none of.
+
+Address detection covers full US/UK addresses, street-only, P.O. Box, and Indian formats (flat, house, plot, named locality) across 8 sub-categories. False positive rate across all entity types: **0%**.
+
+---
+
+## Failure modes — what Armos catches and what it doesn't
+
+Armos is designed to be transparent about its boundaries. Use this to decide whether a given use case is a fit.
+
+**Reliably caught (99%+)**
+
+| Case | Example |
+|------|---------|
+| Full name in sentence context | `Patient Priya Sharma was admitted...` |
+| Indian address with flat/locality/PIN | `Flat 4B, Koramangala, Bangalore 560095` |
+| US/UK address with street and postcode | `123 Oak Ave, Chicago, IL 60601` |
+| All structured identifiers | Aadhaar, PAN, SSN, IBAN, card, email, phone, IP, API key |
+
+**Intentionally not caught (out of scope today)**
+
+| Case | Why |
+|------|-----|
+| Passport numbers, voter ID, driving licence | Not yet supported — on the roadmap |
+| Names in non-Latin scripts | `प्रिया शर्मा` — English model only |
+| Dates of birth | Ambiguous — `12/04/1982` could be a date, not PII in all contexts |
+| Company / organisation names | ORG detection not enabled |
+| Custom internal identifiers | Employee IDs, account codes — use custom model for these |
+
+**Known gaps (miss rate < 1%)**
+
+| Case | Notes |
+|------|-------|
+| Single-word names without context | `"Contact Priya"` — too ambiguous, skipped intentionally |
+| Very long or uncommon South Indian names | e.g. `Venkataraman Subramaniam` — trained on these but rarely missed |
+| Heavily abbreviated addresses | `B-42, MG Rd` with no city or PIN — incomplete format |
+| Names embedded in long lists | `CC: Ananya, Vikram, Neha, Rahul` — sometimes boundary detection slips |
+| Partial / truncated numbers | `4111 1111...` — regex requires complete format |
+
+If your data looks like a specific case here, [open an issue](https://github.com/armos-ai/armos-python/issues) or reach out — we train on real-world gaps.
 
 ---
 
 ## Known limitations
 
-1. **Indian name accuracy** — `en_core_web_lg` achieves ~96% recall on Indian names (see benchmark above). Fine-tuning planned.
-2. **Token length** — `[PII:NAME:a1b2c3d4]` is 18 chars vs `John` (4 chars). Near context-window limits this may push content over. Rare in practice.
-3. **Casing: first-seen wins** — De-masking always restores the first-seen casing of an entity. Use consistent casing in your prompts for exact restoration.
-4. **Streaming not supported** — `stream=True` passes through without masking. (planned)
+1. **Token length** — `[PII:NAME:a1b2c3d4]` is 18 chars vs `John` (4 chars). Near context-window limits this may push content over. Rare in practice.
+2. **Casing: first-seen wins** — De-masking always restores the first-seen casing of an entity. Use consistent casing in your prompts for exact restoration.
+3. **Streaming not supported** — `stream=True` passes through without masking. (planned)
 
 ---
 

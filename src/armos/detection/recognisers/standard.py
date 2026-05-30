@@ -6,10 +6,10 @@ class APIKeyRecogniser(PatternRecognizer):
     """Detects API keys and secrets developers accidentally include in prompts."""
 
     PATTERNS = [
-        Pattern("openai_key",      r"\bsk-[A-Za-z0-9]{20,}\b",          score=0.99),
+        Pattern("openai_key",      r"\bsk-(?:proj-)?[A-Za-z0-9]{20,}\b", score=0.99),
         Pattern("anthropic_key",   r"\bsk-ant-[A-Za-z0-9\-_]{20,}\b",   score=0.99),
         Pattern("aws_access_key",  r"\bAKIA[A-Z0-9]{16}\b",              score=0.99),
-        Pattern("github_token",    r"\bghp_[A-Za-z0-9]{36}\b",           score=0.99),
+        Pattern("github_token",    r"\bghp_[A-Za-z0-9]{36,}\b",          score=0.99),
         Pattern("bearer_token",    r"\bBearer\s+[A-Za-z0-9\-_\.]{20,}\b", score=0.85),
         Pattern("generic_api_key",
             r"\b(?:api[_-]?key|apikey|api[_-]?secret)\s*[=:]\s*['\"]?([A-Za-z0-9\-_]{16,})['\"]?",

@@ -1,6 +1,6 @@
 [project]
 name = "armos"
-version = "1.4.0"
+version = "1.5.0"
 description = "Automatic PII masking for OpenAI and Anthropic SDKs"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,6 +33,7 @@ dependencies = [
     "presidio-anonymizer>=2.2.0",
     "spacy>=3.7.0",
     "click>=8.0.0",
+    "huggingface_hub>=0.20.0",
 ]
 
 [project.urls]
@@ -55,6 +56,10 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning:typer",
+    "ignore::DeprecationWarning:click",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/armos"]

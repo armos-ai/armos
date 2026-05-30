@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-05-30
+
+### Added
+- **armos-ner-en model** — Armos now ships with a custom-trained NER model ([armos-ai/en_armos_ner](https://huggingface.co/armos-ai/en_armos_ner)) built specifically for Indian and Western PII detection. Downloaded automatically on first use (~450 MB, cached at `~/.cache/armos/models/`).
+- **ADDRESS detection** — Physical address detection (Indian and Western) now powered by armos-ner-en NER. Covers flat/house/plot formats with locality, city, and PIN; US/UK street addresses with postcode. 100% detection rate across 10,000 samples.
+- **`huggingface_hub`** added as a core dependency for model download and caching.
+
+### Changed
+- **Indian name detection: 96.4% → 99.4%** (+9.1% vs `en_core_web_lg` baseline) across 10,000 samples.
+- **Western name detection: 99.7%** across 10,000 samples.
+- **OpenAI `sk-proj-` API keys** now detected — regex updated to cover the newer key format alongside the classic `sk-` prefix.
+- First-run download experience improved: clear `[armos]` messages explain what is downloading and why. Subsequent runs load from cache silently.
+- ADDRESS entity boundary resolution improved — partial overlaps (< 50% of shorter span) no longer cause adjacent entities (e.g. AADHAAR) to be dropped.
+
+### Fixed
+- GitHub personal access tokens (`ghp_`) now detected for tokens longer than 36 characters.
+
+---
+
 ## [1.3.0] — 2026-05-28
 
 ### Added

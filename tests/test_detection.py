@@ -135,10 +135,39 @@ def test_resolve_overlaps_higher_score_wins(engine):
     assert resolved[0].score == 0.85
 
 
-def test_ensure_model_downloads_when_missing():
+def test_load_model_path_returns_hf_path_on_success():
+    """_load_model_path() returns the HuggingFace snapshot path when download succeeds."""
     from unittest.mock import patch
-    from armos.detection.engine import _ensure_model
-    with patch("armos.detection.engine.spacy.util.is_package", return_value=False), \
+    from armos.detection.engine import _load_model_path
+
+    with patch("armos.detection.engine.snapshot_download", return_value="/tmp/fake/model") as mock_dl:
+        path = _load_model_path()
+
+    mock_dl.assert_called_once()
+    assert path == "/tmp/fake/model"
+
+
+def test_load_model_path_falls_back_to_spacy_on_error():
+    """_load_model_path() falls back to en_core_web_lg when HF download fails."""
+    from unittest.mock import patch
+    from armos.detection.engine import _load_model_path, _FALLBACK_MODEL
+
+    with patch("armos.detection.engine.snapshot_download", side_effect=Exception("network error")), \
+         patch("armos.detection.engine.spacy.util.is_package", return_value=True):
+        path = _load_model_path()
+
+    assert path == _FALLBACK_MODEL
+
+
+def test_load_model_path_downloads_spacy_fallback_when_missing():
+    """When HF fails and en_core_web_lg is not installed, spacy.cli.download is called."""
+    from unittest.mock import patch
+    from armos.detection.engine import _load_model_path, _FALLBACK_MODEL
+
+    with patch("armos.detection.engine.snapshot_download", side_effect=Exception("offline")), \
+         patch("armos.detection.engine.spacy.util.is_package", return_value=False), \
          patch("armos.detection.engine.spacy.cli.download") as mock_dl:
-        _ensure_model()
-    mock_dl.assert_called_once_with("en_core_web_lg")
+        path = _load_model_path()
+
+    mock_dl.assert_called_once_with(_FALLBACK_MODEL)
+    assert path == _FALLBACK_MODEL
